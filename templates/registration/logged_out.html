@@ -1,0 +1,10 @@
+{% extends "registration/base_auth.html" %}
+
+{% block title %}Logged Out{% endblock %}
+{% block heading %}You are logged out{% endblock %}
+
+{% block content %}
+<p class="muted">Your session ended successfully.</p>
+<p class="actions"><a href="{% url 'login' %}">Sign in again</a></p>
+{% endblock %}
+

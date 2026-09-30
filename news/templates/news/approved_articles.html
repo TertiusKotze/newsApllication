@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Approved Articles{% endblock %}
+
+{% block body %}
+<div class="card">
+    <h1>Approved Articles</h1>
+    <p class="muted">Independent reporting and publisher stories cleared by editors.</p>
+    {% if articles %}
+        <ul class="story-list">
+            {% for article in articles %}
+                <li>
+                    <h2>
+                        <a href="{% url 'article-detail' article.pk %}">{{ article.title }}</a>
+                    </h2>
+                    <p class="muted">
+                        By {{ article.author.username }}
+                        {% if article.publisher %}
+                            for {{ article.publisher.name }}
+                        {% else %}
+                            (independent)
+                        {% endif %}
+                        on {{ article.created_at|date:"j M Y" }}
+                    </p>
+                    <p>{{ article.content|truncatewords:40 }}</p>
+                    <p><a class="button" href="{% url 'article-detail' article.pk %}">Read story</a></p>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No approved articles available yet.</p>
+    {% endif %}
+</div>
+{% endblock %}

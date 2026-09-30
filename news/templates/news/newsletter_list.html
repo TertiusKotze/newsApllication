@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Newsletters{% endblock %}
+
+{% block body %}
+<div class="card">
+    <h1>Newsletters</h1>
+    <p class="muted">Curated collections assembled by journalists and editors.</p>
+    {% if user.role == 'journalist' or user.role == 'editor' %}
+        <p><a class="button" href="{% url 'newsletter-create' %}">Create newsletter</a></p>
+    {% endif %}
+    {% if newsletters %}
+        <ul class="story-list">
+            {% for newsletter in newsletters %}
+                <li>
+                    <h2>
+                        <a href="{% url 'newsletter-detail' newsletter.pk %}">{{ newsletter.title }}</a>
+                    </h2>
+                    <p class="muted">By {{ newsletter.author.username }} on {{ newsletter.created_at|date:"j M Y" }}</p>
+                    <p>{{ newsletter.description|default:"No description." }}</p>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No newsletters have been published yet.</p>
+    {% endif %}
+</div>
+{% endblock %}
+

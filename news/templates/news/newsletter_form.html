@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}Newsletter{% endblock %}
+
+{% block body %}
+<div class="card">
+    <h1>{% if view.object %}Edit newsletter{% else %}Create newsletter{% endif %}</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Save newsletter</button>
+    </form>
+</div>
+{% endblock %}
+

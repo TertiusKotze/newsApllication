@@ -1,0 +1,14 @@
+# Core Django framework and REST API
+Django>=5.2,<6.0
+djangorestframework>=3.15,<4.0
+djangorestframework-simplejwt>=5.3,<6.0
+
+# MariaDB database driver (Django's MySQL backend is used for MariaDB)
+mysqlclient>=2.2,<3.0
+
+# Loads database credentials and settings from the .env file
+python-dotenv>=1.0,<2.0
+
+# HTTP client used by the approval signal to POST to /api/approved/
+requests>=2.32,<3.0
+

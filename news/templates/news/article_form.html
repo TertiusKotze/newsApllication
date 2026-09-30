@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}{{ view.object|yesno:"Edit article,Write article" }}{% endblock %}
+
+{% block body %}
+<div class="card">
+    <h1>{% if view.object %}Edit article{% else %}Write article{% endif %}</h1>
+    <p class="muted">Journalists submit copy here. Editors approve it from the review queue.</p>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Save article</button>
+    </form>
+</div>
+{% endblock %}
+

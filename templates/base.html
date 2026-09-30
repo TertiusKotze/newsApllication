@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}News Application{% endblock %}</title>
+    <style>
+        :root {
+            --ink: #1b1b1b;
+            --paper: #f6f1e8;
+            --card: #fffdf8;
+            --accent: #8b1e3f;
+            --accent-dark: #64142c;
+            --muted: #5c5852;
+            --line: #ddd4c4;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: Georgia, "Times New Roman", serif;
+            background: var(--paper);
+            color: var(--ink);
+        }
+        header {
+            background: var(--ink);
+            color: #fff;
+            padding: 0.9rem 1.5rem;
+        }
+        .brand {
+            font-size: 1.35rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin: 0 1rem 0 0;
+            color: #fff;
+            text-decoration: none;
+            font-weight: 700;
+        }
+        nav {
+            display: flex;
+            gap: 0.85rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        nav a, .nav-button {
+            color: #fff;
+            text-decoration: none;
+            font-family: "Segoe UI", Arial, sans-serif;
+            font-size: 0.95rem;
+            background: none;
+            border: 0;
+            padding: 0;
+            cursor: pointer;
+        }
+        nav a:hover, .nav-button:hover { text-decoration: underline; }
+        .spacer { flex: 1; }
+        .role-chip {
+            font-family: "Segoe UI", Arial, sans-serif;
+            font-size: 0.85rem;
+            color: #f3d9c4;
+        }
+        main { margin: 1.5rem auto; max-width: 960px; padding: 0 1rem 2rem; }
+        .card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 1.4rem 1.5rem;
+            margin-bottom: 1rem;
+        }
+        h1, h2 { margin-top: 0; }
+        .muted { color: var(--muted); font-family: "Segoe UI", Arial, sans-serif; }
+        .error, .alert-error { color: #8a1f11; }
+        .alert-success { color: #1e6b3a; }
+        .actions { margin-top: 1rem; display: flex; gap: 0.6rem; flex-wrap: wrap; }
+        button, .button {
+            background: var(--accent);
+            color: #fff;
+            border: 0;
+            border-radius: 6px;
+            padding: 0.5rem 0.9rem;
+            cursor: pointer;
+            text-decoration: none;
+            font-family: "Segoe UI", Arial, sans-serif;
+            display: inline-block;
+        }
+        button:hover, .button:hover { background: var(--accent-dark); }
+        .button.secondary { background: #4a4743; }
+        .input, input, select, textarea {
+            width: 100%;
+            max-width: 640px;
+            padding: 0.45rem 0.55rem;
+            margin: 0.2rem 0 0.8rem;
+            font-family: "Segoe UI", Arial, sans-serif;
+        }
+        .story-list { list-style: none; padding: 0; margin: 0; }
+        .story-list li {
+            border-bottom: 1px solid var(--line);
+            padding: 0.9rem 0;
+        }
+        .story-list li:last-child { border-bottom: 0; }
+        article p { line-height: 1.55; }
+        .messages { list-style: none; padding: 0; }
+    </style>
+</head>
+<body>
+<header>
+    <nav>
+        <a class="brand" href="{% url 'approved-articles' %}">News Application</a>
+        <a href="{% url 'approved-articles' %}">Articles</a>
+        <a href="{% url 'newsletter-list' %}">Newsletters</a>
+        {% if user.is_authenticated and user.role == 'reader' %}
+            <a href="{% url 'subscriptions' %}">Subscriptions</a>
+        {% endif %}
+        {% if user.is_authenticated and user.role == 'journalist' %}
+            <a href="{% url 'article-create' %}">Write article</a>
+            <a href="{% url 'my-articles' %}">My articles</a>
+        {% endif %}
+        {% if user.is_authenticated and user.role == 'journalist' or user.is_authenticated and user.role == 'editor' %}
+            <a href="{% url 'newsletter-create' %}">New newsletter</a>
+        {% endif %}
+        {% if user.is_authenticated and user.role == 'editor' %}
+            <a href="{% url 'pending-articles' %}">Pending review</a>
+        {% endif %}
+        <span class="spacer"></span>
+        {% if user.is_authenticated %}
+            <span class="role-chip">{{ user.username }} ({{ user.role }})</span>
+            <form method="post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="nav-button">Logout</button>
+            </form>
+        {% else %}
+            <a href="{% url 'login' %}">Login</a>
+            <a href="{% url 'register' %}">Register</a>
+        {% endif %}
+    </nav>
+</header>
+<main>
+    {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+                <li class="alert-{{ message.tags }}">{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+    {% block body %}{% endblock %}
+</main>
+</body>
+</html>
+

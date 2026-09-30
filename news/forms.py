@@ -1,0 +1,158 @@
+"""HTML forms for registration, articles, newsletters, and subscriptions."""
+
+from django import forms
+from django.contrib.auth.forms import UserCreationForm
+
+from .models import Article, Newsletter, Publisher, RoleChoices, User
+
+
+class StyledFormMixin:
+    """Apply a shared CSS class to visible form widgets."""
+
+    def _style_fields(self):
+        """Add the ``input`` class used by the site stylesheet."""
+        for field in self.fields.values():
+            existing = field.widget.attrs.get('class', '')
+            field.widget.attrs['class'] = (existing + ' input').strip()
+
+
+class UserRegistrationForm(StyledFormMixin, UserCreationForm):
+    """Register a front-end user with a chosen role and email address.
+
+    The selected role decides which group (Reader, Journalist, or
+    Editor) the user joins, and therefore which permissions they get.
+    """
+
+    email = forms.EmailField(
+        required=True,
+        help_text='Required. Used for newsletters and approval emails.',
+    )
+    role = forms.ChoiceField(
+        choices=RoleChoices.choices,
+        initial=RoleChoices.READER,
+        label='Account type',
+        help_text=(
+            'Readers follow and read content, journalists write articles '
+            'and newsletters, and editors review and approve articles.'
+        ),
+    )
+
+    class Meta(UserCreationForm.Meta):
+        model = User
+        fields = ['username', 'email', 'role', 'password1', 'password2']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._style_fields()
+
+    def clean_role(self):
+        """Reject any role value outside the supported choices."""
+        role = self.cleaned_data.get('role')
+        if role not in RoleChoices.values:
+            raise forms.ValidationError('Please choose a valid account type.')
+        return role
+
+    def save(self, commit=True):
+        """Create the user with the selected role and email address."""
+        user = super().save(commit=False)
+        user.role = self.cleaned_data['role']
+        user.email = self.cleaned_data['email']
+        if commit:
+            user.save()
+        return user
+
+
+class ArticleForm(StyledFormMixin, forms.ModelForm):
+    """Create or update an article without exposing approval on the form."""
+
+    class Meta:
+        model = Article
+        fields = ['title', 'content', 'publisher']
+        widgets = {
+            'content': forms.Textarea(attrs={'rows': 12}),
+        }
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+        self.fields['publisher'].required = False
+        self.fields['publisher'].empty_label = 'Independent article'
+        self.fields['publisher'].help_text = (
+            'Leave blank to publish independently, or choose a publisher '
+            'you belong to.'
+        )
+        if user and user.role == RoleChoices.JOURNALIST:
+            self.fields['publisher'].queryset = (
+                user.publisher_journalist_for.all()
+            )
+        else:
+            self.fields['publisher'].queryset = Publisher.objects.all()
+        self._style_fields()
+
+    def clean_publisher(self):
+        """Prevent journalists from selecting publishers they do not join."""
+        publisher = self.cleaned_data.get('publisher')
+        user = self.user
+        if (
+            publisher
+            and user
+            and user.role == RoleChoices.JOURNALIST
+            and not user.publisher_journalist_for.filter(
+                pk=publisher.pk
+            ).exists()
+        ):
+            raise forms.ValidationError(
+                'You can only file articles under publishers you belong to.'
+            )
+        return publisher
+
+
+class NewsletterForm(StyledFormMixin, forms.ModelForm):
+    """Create or update a newsletter and attach approved articles."""
+
+    class Meta:
+        model = Newsletter
+        fields = ['title', 'description', 'articles']
+        widgets = {
+            'description': forms.Textarea(attrs={'rows': 6}),
+            'articles': forms.SelectMultiple(attrs={'size': 8}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['articles'].queryset = Article.objects.filter(
+            approved=True
+        )
+        self.fields['articles'].required = False
+        self.fields['articles'].help_text = (
+            'Hold Ctrl (or Cmd) to select multiple approved articles.'
+        )
+        self._style_fields()
+
+
+class SubscriptionForm(StyledFormMixin, forms.Form):
+    """Let readers choose publisher and journalist subscriptions."""
+
+    publishers = forms.ModelMultipleChoiceField(
+        queryset=Publisher.objects.all(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label='Publishers',
+    )
+    journalists = forms.ModelMultipleChoiceField(
+        queryset=User.objects.filter(role=RoleChoices.JOURNALIST),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label='Journalists',
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+        if user:
+            self.fields['publishers'].initial = (
+                user.subscribed_publishers.values_list('pk', flat=True)
+            )
+            self.fields['journalists'].initial = (
+                user.subscribed_journalists.values_list('pk', flat=True)
+            )

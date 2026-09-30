@@ -1,0 +1,129 @@
+"""URL routes for the news HTML workflow and REST API."""
+
+from django.urls import path
+
+from .api_views import (
+    ArticleDetailAPIView,
+    ArticleListCreateAPIView,
+    ArticleSubscribedAPIView,
+    InternalApprovedLogAPIView,
+    NewsletterDetailAPIView,
+    NewsletterListCreateAPIView,
+)
+from .views import (
+    ApproveArticleView,
+    ApprovedArticleListView,
+    ArticleCreateView,
+    ArticleDeleteView,
+    ArticleDetailView,
+    ArticleUpdateView,
+    MyArticleListView,
+    NewsletterCreateView,
+    NewsletterDeleteView,
+    NewsletterDetailView,
+    NewsletterListView,
+    NewsletterUpdateView,
+    PendingArticleListView,
+    RegisterView,
+    SubscriptionView,
+)
+
+urlpatterns = [
+    path('', ApprovedArticleListView.as_view(), name='approved-articles'),
+    path(
+        'accounts/register/',
+        RegisterView.as_view(),
+        name='register',
+    ),
+    path(
+        'articles/pending/',
+        PendingArticleListView.as_view(),
+        name='pending-articles',
+    ),
+    path(
+        'articles/create/',
+        ArticleCreateView.as_view(),
+        name='article-create',
+    ),
+    path('articles/mine/', MyArticleListView.as_view(), name='my-articles'),
+    path(
+        'articles/<int:pk>/',
+        ArticleDetailView.as_view(),
+        name='article-detail',
+    ),
+    path(
+        'articles/<int:pk>/edit/',
+        ArticleUpdateView.as_view(),
+        name='article-edit',
+    ),
+    path(
+        'articles/<int:pk>/delete/',
+        ArticleDeleteView.as_view(),
+        name='article-delete',
+    ),
+    path(
+        'articles/<int:article_id>/approve/',
+        ApproveArticleView.as_view(),
+        name='approve-article',
+    ),
+    path(
+        'newsletters/',
+        NewsletterListView.as_view(),
+        name='newsletter-list',
+    ),
+    path(
+        'newsletters/create/',
+        NewsletterCreateView.as_view(),
+        name='newsletter-create',
+    ),
+    path(
+        'newsletters/<int:pk>/',
+        NewsletterDetailView.as_view(),
+        name='newsletter-detail',
+    ),
+    path(
+        'newsletters/<int:pk>/edit/',
+        NewsletterUpdateView.as_view(),
+        name='newsletter-edit',
+    ),
+    path(
+        'newsletters/<int:pk>/delete/',
+        NewsletterDeleteView.as_view(),
+        name='newsletter-delete',
+    ),
+    path(
+        'subscriptions/',
+        SubscriptionView.as_view(),
+        name='subscriptions',
+    ),
+    path(
+        'api/articles/',
+        ArticleListCreateAPIView.as_view(),
+        name='api-articles',
+    ),
+    path(
+        'api/articles/subscribed/',
+        ArticleSubscribedAPIView.as_view(),
+        name='api-articles-subscribed',
+    ),
+    path(
+        'api/articles/<int:pk>/',
+        ArticleDetailAPIView.as_view(),
+        name='api-article-detail',
+    ),
+    path(
+        'api/newsletters/',
+        NewsletterListCreateAPIView.as_view(),
+        name='api-newsletters',
+    ),
+    path(
+        'api/newsletters/<int:pk>/',
+        NewsletterDetailAPIView.as_view(),
+        name='api-newsletter-detail',
+    ),
+    path(
+        'api/approved/',
+        InternalApprovedLogAPIView.as_view(),
+        name='api-approved-log',
+    ),
+]

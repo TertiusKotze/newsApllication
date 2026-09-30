@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Pending Articles{% endblock %}
+
+{% block body %}
+<div class="card">
+    <h1>Pending Articles</h1>
+    <p class="muted">Approve a submission to email subscribers and log it to the API.</p>
+    {% if articles %}
+        <ul class="story-list">
+            {% for article in articles %}
+                <li>
+                    <h2>
+                        <a href="{% url 'article-detail' article.pk %}">{{ article.title }}</a>
+                    </h2>
+                    <p class="muted">
+                        By {{ article.author.username }}
+                        {% if article.publisher %} - {{ article.publisher.name }}{% endif %}
+                    </p>
+                    <p>{{ article.content|truncatewords:50 }}</p>
+                    <div class="actions">
+                        <a class="button secondary" href="{% url 'article-detail' article.pk %}">Review</a>
+                        <a class="button secondary" href="{% url 'article-edit' article.pk %}">Edit</a>
+                        <form method="post" action="{% url 'approve-article' article.id %}">
+                            {% csrf_token %}
+                            <button type="submit">Approve</button>
+                        </form>
+                    </div>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No pending articles.</p>
+    {% endif %}
+</div>
+{% endblock %}

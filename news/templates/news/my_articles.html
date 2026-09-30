@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}My articles{% endblock %}
+
+{% block body %}
+<div class="card">
+    <h1>My articles</h1>
+    <p class="muted">Independent pieces and publisher submissions you have authored.</p>
+    <p><a class="button" href="{% url 'article-create' %}">Write article</a></p>
+    {% if articles %}
+        <ul class="story-list">
+            {% for article in articles %}
+                <li>
+                    <strong><a href="{% url 'article-detail' article.pk %}">{{ article.title }}</a></strong>
+                    <p class="muted">
+                        {% if article.publisher %}{{ article.publisher.name }}{% else %}Independent{% endif %}
+                        · {% if article.approved %}Approved{% else %}Pending{% endif %}
+                    </p>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>You have not submitted any articles yet.</p>
+    {% endif %}
+</div>
+{% endblock %}
+

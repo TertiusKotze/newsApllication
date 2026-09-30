@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}{{ article.title }}{% endblock %}
+
+{% block body %}
+<article class="card">
+    <p class="muted">
+        <a href="{% url 'approved-articles' %}">Articles</a>
+        {% if not article.approved %} / Pending review{% endif %}
+    </p>
+    <h1>{{ article.title }}</h1>
+    <p class="muted">
+        By {{ article.author.username }}
+        {% if article.publisher %} for {{ article.publisher.name }}{% else %} (independent){% endif %}
+        on {{ article.created_at|date:"j M Y H:i" }}
+        {% if article.approved %} · Approved{% else %} · Awaiting approval{% endif %}
+    </p>
+    <p>{{ article.content|linebreaksbr }}</p>
+    <div class="actions">
+        {% if user.role == 'editor' and not article.approved %}
+            <form method="post" action="{% url 'approve-article' article.id %}">
+                {% csrf_token %}
+                <button type="submit">Approve</button>
+            </form>
+        {% endif %}
+        {% if user.role == 'editor' or user.id == article.author_id %}
+            <a class="button secondary" href="{% url 'article-edit' article.pk %}">Edit</a>
+            <a class="button secondary" href="{% url 'article-delete' article.pk %}">Delete</a>
+        {% endif %}
+    </div>
+</article>
+{% endblock %}
+
