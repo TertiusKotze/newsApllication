@@ -64,6 +64,14 @@ def _configure_role_groups():
         Permission.objects.filter(codename__in=journalist_codes)
     )
 
+    # Publishers read content and manage their own publication staff.
+    publisher_group, _ = Group.objects.get_or_create(name="Publisher")
+    publisher_group.permissions.set(
+        Permission.objects.filter(
+            codename__in=reader_codes + ["view_publisher", "change_publisher"]
+        )
+    )
+
 
 @receiver(post_migrate)
 def create_role_groups(sender, **kwargs):

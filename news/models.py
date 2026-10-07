@@ -11,6 +11,7 @@ class RoleChoices(models.TextChoices):
     READER = 'reader', 'Reader'
     EDITOR = 'editor', 'Editor'
     JOURNALIST = 'journalist', 'Journalist'
+    PUBLISHER = 'publisher', 'Publisher'
 
 
 class User(AbstractUser):
@@ -27,6 +28,11 @@ class User(AbstractUser):
     unused and helper methods return ``None``.
     """
 
+    email = models.EmailField(
+        'email address',
+        unique=True,
+        help_text='Must be unique; used for password resets and emails.',
+    )
     role = models.CharField(max_length=20, choices=RoleChoices.choices)
     subscribed_publishers = models.ManyToManyField(
         'Publisher',
@@ -44,17 +50,26 @@ class User(AbstractUser):
     )
 
     def clean(self):
-        """Block reader accounts from receiving staff flags."""
+        """Block readers from staff flags and duplicate emails."""
         super().clean()
         if self.role == RoleChoices.READER and (
             self.is_staff or self.is_superuser
         ):
             raise ValidationError('Readers cannot be staff users.')
+        if self.email and User.objects.filter(
+            email__iexact=self.email
+        ).exclude(pk=self.pk).exists():
+            raise ValidationError(
+                {'email': 'An account with this email already exists.'}
+            )
 
     def save(self, *args, **kwargs):
         """Persist the user, then keep role-specific fields consistent."""
+        if self.email:
+            # Normalise so "A@x.com" and "a@x.com" count as duplicates.
+            self.email = self.email.strip().lower()
         super().save(*args, **kwargs)
-        # Journalists/editors do not subscribe; clear reader-only relations.
+        # Only readers subscribe; clear reader-only relations otherwise.
         if self.role != RoleChoices.READER:
             self.subscribed_publishers.clear()
             self.subscribed_journalists.clear()
@@ -66,6 +81,7 @@ class User(AbstractUser):
             RoleChoices.READER: 'Reader',
             RoleChoices.EDITOR: 'Editor',
             RoleChoices.JOURNALIST: 'Journalist',
+            RoleChoices.PUBLISHER: 'Publisher',
         }
         target_group_name = role_group_map.get(self.role)
         if not target_group_name:
@@ -104,10 +120,19 @@ class User(AbstractUser):
 
 
 class Publisher(models.Model):
-    """A curated publication that can employ editors and journalists."""
+    """A publication owned by a Publisher user, staffed by its choice."""
 
     name = models.CharField(max_length=200, unique=True)
     description = models.TextField(blank=True)
+    owner = models.OneToOneField(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='owned_publisher',
+        limit_choices_to={'role': RoleChoices.PUBLISHER},
+        help_text='Publisher account that manages editors/journalists.',
+    )
     editors = models.ManyToManyField(
         User,
         related_name='publisher_editor_for',
@@ -128,8 +153,9 @@ class Publisher(models.Model):
 class Article(models.Model):
     """A news article authored by a journalist, optionally for a publisher.
 
-    Independent articles leave ``publisher`` empty. Publisher content must
-    set ``publisher`` and still keep a journalist as ``author``.
+    Independent articles leave ``publisher`` empty and are approved by
+    their author. Publisher articles are approved by that publisher's
+    editors.
     """
 
     title = models.CharField(max_length=255)
@@ -161,6 +187,30 @@ class Article(models.Model):
             raise ValidationError(
                 'Only journalists can be article authors.'
             )
+
+    @property
+    def is_independent(self):
+        """True when the article is not filed under a publisher."""
+        return self.publisher_id is None
+
+    def can_be_approved_by(self, user):
+        """Return True when ``user`` may approve this article.
+
+        * Independent articles: only the authoring journalist approves
+          (they decide when the piece is finished).
+        * Publisher articles: only editors of that publisher approve.
+        """
+        if not user or not user.is_authenticated or self.approved:
+            return False
+        if self.is_independent:
+            return (
+                user.role == RoleChoices.JOURNALIST
+                and self.author_id == user.id
+            )
+        return (
+            user.role == RoleChoices.EDITOR
+            and self.publisher.editors.filter(pk=user.pk).exists()
+        )
 
     def __str__(self):
         return self.title
@@ -217,3 +267,4 @@ class ApprovedArticleLog(models.Model):
 
     def __str__(self):
         return f'Approved log #{self.pk} for article {self.article_id}'
+

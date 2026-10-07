@@ -46,3 +46,10 @@ class ReaderRequiredMixin(RoleRequiredMixin):
 
     allowed_roles = (RoleChoices.READER,)
 
+
+class PublisherRequiredMixin(RoleRequiredMixin):
+    """Restrict a view to publisher accounts."""
+
+    allowed_roles = (RoleChoices.PUBLISHER,)
+
+

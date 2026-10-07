@@ -215,6 +215,15 @@ class NewsAPITestCase(APITestCase):
             name='Daily Scope',
             description='Publisher',
         )
+        self.publisher.editors.add(self.editor)
+        self.publisher.journalists.add(self.journalist)
+        self.publisher_pending = Article.objects.create(
+            title='Pending Publisher Story',
+            content='Awaiting editor',
+            author=self.journalist,
+            publisher=self.publisher,
+            approved=False,
+        )
         self.approved_subscribed_article = Article.objects.create(
             title='Subscribed Publisher Article',
             content='Publisher content',
@@ -346,43 +355,63 @@ class NewsAPITestCase(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_editor_can_approve_article(self):
-        """An editor PUT with approved=True flips the flag."""
-        self.authenticate(self.editor)
-        with patch('news.signals.requests.post') as mocked_post:
-            response = self.client.put(
-                reverse(
-                    'api-article-detail',
-                    kwargs={'pk': self.pending_article.id},
-                ),
-                {
-                    'title': self.pending_article.title,
-                    'content': self.pending_article.content,
-                    'publisher': None,
-                    'approved': True,
-                },
-                format='json',
-            )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.pending_article.refresh_from_db()
-        self.assertTrue(self.pending_article.approved)
-        mocked_post.assert_called_once()
-
-    def test_journalist_cannot_approve_article(self):
-        """Journalists cannot set approved=True."""
-        self.authenticate(self.journalist)
-        response = self.client.put(
-            reverse(
-                'api-article-detail',
-                kwargs={'pk': self.pending_article.id},
-            ),
+    def _approve_put(self, article, publisher_id):
+        """PUT approved=True for ``article`` as the authenticated user."""
+        return self.client.put(
+            reverse('api-article-detail', kwargs={'pk': article.id}),
             {
-                'title': self.pending_article.title,
-                'content': self.pending_article.content,
-                'publisher': None,
+                'title': article.title,
+                'content': article.content,
+                'publisher': publisher_id,
                 'approved': True,
             },
             format='json',
+        )
+
+    def test_editor_can_approve_publisher_article(self):
+        """A publisher's editor can approve that publisher's article."""
+        self.authenticate(self.editor)
+        with patch('news.signals.requests.post') as mocked_post:
+            response = self._approve_put(
+                self.publisher_pending, self.publisher.id
+            )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.publisher_pending.refresh_from_db()
+        self.assertTrue(self.publisher_pending.approved)
+        mocked_post.assert_called_once()
+
+    def test_editor_of_other_publisher_cannot_approve(self):
+        """Editors outside the publisher are refused."""
+        outsider = User.objects.create_user(
+            username='outsider', email='outsider@example.com',
+            password='pass12345', role=RoleChoices.EDITOR,
+        )
+        self.authenticate(outsider)
+        response = self._approve_put(
+            self.publisher_pending, self.publisher.id
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_editor_cannot_approve_independent_article(self):
+        """Independent articles are approved by their author only."""
+        self.authenticate(self.editor)
+        response = self._approve_put(self.pending_article, None)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_journalist_can_approve_own_independent_article(self):
+        """Independent journalists publish their own finished drafts."""
+        self.authenticate(self.journalist)
+        with patch('news.signals.requests.post'):
+            response = self._approve_put(self.pending_article, None)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.pending_article.refresh_from_db()
+        self.assertTrue(self.pending_article.approved)
+
+    def test_journalist_cannot_approve_publisher_article(self):
+        """Publisher articles need an editor, not the journalist."""
+        self.authenticate(self.journalist)
+        response = self._approve_put(
+            self.publisher_pending, self.publisher.id
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
@@ -475,18 +504,8 @@ class NewsAPITestCase(APITestCase):
     ):
         """Approving an article emails subscribers and posts internally."""
         self.authenticate(self.editor)
-        response = self.client.put(
-            reverse(
-                'api-article-detail',
-                kwargs={'pk': self.pending_article.id},
-            ),
-            {
-                'title': self.pending_article.title,
-                'content': self.pending_article.content,
-                'publisher': self.publisher.id,
-                'approved': True,
-            },
-            format='json',
+        response = self._approve_put(
+            self.publisher_pending, self.publisher.id
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(mocked_send_mail.called)
@@ -531,3 +550,97 @@ class NewsAPITestCase(APITestCase):
         self.assertIsNone(self.reader.independent_articles())
         self.assertIsNone(self.reader.independent_newsletters())
 
+
+
+class RegistrationAndPublisherTests(TestCase):
+    """Unique emails, publisher registration and staff management."""
+
+    def _register(self, **overrides):
+        data = {
+            'username': 'newuser',
+            'email': 'new@example.com',
+            'role': RoleChoices.READER,
+            'password1': 'Str0ng!Pass99',
+            'password2': 'Str0ng!Pass99',
+        }
+        data.update(overrides)
+        return self.client.post(reverse('register'), data)
+
+    def test_duplicate_email_rejected_case_insensitive(self):
+        """A second account cannot reuse an email in any letter case."""
+        self._register()
+        self.client.logout()
+        response = self._register(username='other', email='NEW@example.com')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'already exists')
+        self.assertEqual(User.objects.count(), 1)
+
+    def test_publisher_registration_creates_publication(self):
+        """Registering as publisher creates an owned publication."""
+        self._register(
+            username='pubco', email='pub@example.com',
+            role=RoleChoices.PUBLISHER, publisher_name='PubCo',
+        )
+        publisher = Publisher.objects.get(name='PubCo')
+        self.assertEqual(publisher.owner.username, 'pubco')
+        self.assertTrue(
+            publisher.owner.groups.filter(name='Publisher').exists()
+        )
+
+    def test_publisher_registration_requires_name(self):
+        """Publisher accounts must name their publication."""
+        response = self._register(role=RoleChoices.PUBLISHER)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.exists())
+
+    def test_publisher_adds_and_removes_staff(self):
+        """Publishers manage their own editors and journalists."""
+        owner = User.objects.create_user(
+            username='owner', email='owner@example.com',
+            password='pass12345', role=RoleChoices.PUBLISHER,
+        )
+        publisher = Publisher.objects.create(name='Mine', owner=owner)
+        editor = User.objects.create_user(
+            username='ed', email='ed@example.com',
+            password='pass12345', role=RoleChoices.EDITOR,
+        )
+        journalist = User.objects.create_user(
+            username='jo', email='jo@example.com',
+            password='pass12345', role=RoleChoices.JOURNALIST,
+        )
+        self.client.force_login(owner)
+        self.client.post(
+            reverse('publisher-manage'),
+            {'editors': [editor.pk], 'journalists': [journalist.pk]},
+        )
+        self.assertTrue(publisher.editors.filter(pk=editor.pk).exists())
+        self.assertTrue(
+            publisher.journalists.filter(pk=journalist.pk).exists()
+        )
+        self.client.post(reverse('publisher-manage'), {'editors': [editor.pk]})
+        self.assertFalse(publisher.journalists.exists())
+
+    def test_non_publisher_cannot_manage_staff(self):
+        """Other roles get 403 on the management page."""
+        reader = User.objects.create_user(
+            username='rd', email='rd@example.com',
+            password='pass12345', role=RoleChoices.READER,
+        )
+        self.client.force_login(reader)
+        response = self.client.get(reverse('publisher-manage'))
+        self.assertEqual(response.status_code, 403)
+
+    def test_independent_journalist_approves_via_html(self):
+        """Independent authors approve their own article in the UI."""
+        journalist = User.objects.create_user(
+            username='indie', email='indie@example.com',
+            password='pass12345', role=RoleChoices.JOURNALIST,
+        )
+        article = Article.objects.create(
+            title='Indie', content='Draft', author=journalist,
+        )
+        self.client.force_login(journalist)
+        with patch('news.signals.requests.post'):
+            self.client.post(reverse('approve-article', args=[article.pk]))
+        article.refresh_from_db()
+        self.assertTrue(article.approved)

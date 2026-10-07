@@ -5,7 +5,10 @@
 {% block body %}
 <div class="card">
     <h1>Pending Articles</h1>
-    <p class="muted">Approve a submission to email subscribers and log it to the API.</p>
+    <p class="muted">
+        {% if user.role == 'journalist' %}Your independent drafts. Approve one when it is finished to publish it, email subscribers and log it to the API.
+        {% else %}Submissions to publishers you edit for. Approving emails subscribers and logs to the API.{% endif %}
+    </p>
     {% if articles %}
         <ul class="story-list">
             {% for article in articles %}

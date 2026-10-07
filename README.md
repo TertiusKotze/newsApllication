@@ -1,9 +1,12 @@
 # News Application
 
-A Django news platform for **readers**, **journalists**, and **editors**.
-Journalists write articles (independently or for a publisher), editors
-review and approve them, and readers subscribe to publishers or
-journalists. When an editor approves an article, subscribers are emailed
+A Django news platform for **readers**, **journalists**, **editors** and
+**publishers**. Publishers register their publication and add/remove
+their own editors and journalists. Journalists write articles
+(independently or for a publisher). Publisher articles are approved by
+that publisher's editors; independent articles are approved by their
+author once finished. Readers subscribe to publishers or journalists.
+When an article is approved, subscribers are emailed
 and the article is logged to the project's own REST endpoint
 (`/api/approved/`).
 
@@ -51,7 +54,7 @@ the commands below **one at a time**.
 ### 2.1 Clone the repository
 
 ```bash
-git clone https://github.com/<your-github-username>/News_application.git
+git clone https://github.com/TertiusKotze/newsApllication.git
 ```
 
 ### 2.2 Enter the project folder
@@ -60,7 +63,7 @@ All later commands must be run from **inside** this folder. Otherwise
 files such as `requirements.txt` and `manage.py` will not be found.
 
 ```bash
-cd News_application
+cd newsApllication
 ```
 
 ### 2.3 Create a virtual environment
@@ -87,7 +90,7 @@ Your prompt now starts with `(venv)`.
 
 ### 2.5 Install the dependencies
 
-Make sure you are still in the `News_application` folder:
+Make sure you are still in the `newsApllication` folder:
 
 ```bash
 pip install -r requirements.txt
@@ -183,14 +186,20 @@ DB_PORT=3306
 
 ## 5. Migrate and run
 
-Still inside `News_application` with the virtual environment active:
+Still inside `newsApllication` with the virtual environment active:
 
 ```bash
 python manage.py migrate
 ```
 
-This creates all tables in MariaDB and the **Reader**, **Editor**, and
-**Journalist** groups with their permissions.
+This creates all tables in MariaDB and the **Reader**, **Editor**,
+**Journalist** and **Publisher** groups with their permissions.
+
+Optionally load demo data (see 6.2):
+
+```bash
+python manage.py seed_demo
+```
 
 Optionally, create an administrator for the Django admin site:
 
@@ -220,39 +229,66 @@ Go to **http://127.0.0.1:8000/accounts/register/** and choose an
 | --- | --- | --- |
 | Reader | Reader | View approved articles and newsletters, and manage subscriptions to publishers and journalists. |
 | Journalist | Journalist | Create, view, update, and delete their own articles and newsletters. |
-| Editor | Editor | View, update, delete, and **approve** articles, and manage newsletters. |
+| Editor | Editor | View, update, delete articles/newsletters, and **approve articles of the publishers they belong to**. |
+| Publisher | Publisher | Owns a publication (name entered at registration) and **adds/removes its own editors and journalists** at *Manage publication*. |
 
 The user is added to the matching group automatically and logged in.
+Email addresses must be unique (case-insensitive) so password resets and
+subscription emails always reach the right account.
 
-### 6.2 Try the full workflow
+**Who approves what?**
 
-1. Register a **Journalist** and create an article at *Write article*.
-   New articles are not approved yet.
-2. Log out and register a **Reader**. Under *Subscriptions*, follow the
-   journalist.
-3. Log out and register an **Editor**. Open *Pending articles* and
-   click **Approve**.
-4. The approval:
+| Article type | Approved by |
+| --- | --- |
+| Publisher article | An editor of that publisher |
+| Independent article (no publisher) | The journalist who wrote it, via *Pending review*, when the draft is finished |
+
+### 6.2 Demo data (optional)
+
+`python manage.py seed_demo` creates:
+
+| Username | Password | Role |
+| --- | --- | --- |
+| `tkpublishing` | `Publish@99` | Publisher of **TKPublishing** |
+| `tertius` | `Journalist@99` | Journalist (member of TKPublishing) |
+| `editor1` | `Editor@99` | Editor (member of TKPublishing) |
+| `reader1` | `Reader@99` | Reader (subscribed to TKPublishing and tertius) |
+
+plus approved articles, humorous pending articles and a newsletter.
+
+### 6.3 Try the full workflow
+
+1. Register a **Publisher** (enter a publication name).
+2. Register a **Journalist** and an **Editor**.
+3. Log in as the publisher, open *Manage publication* and tick the
+   journalist and editor to add them (untick to remove).
+4. Log in as the journalist and write an article for the publisher, or
+   leave it *Independent* and approve it yourself under *Pending review*.
+5. Register a **Reader** and follow the publisher/journalist under
+   *Subscriptions*.
+6. Log in as the editor, open *Pending review* and click **Approve**.
+7. The approval:
    - emails the reader (printed in the `runserver` terminal, because the
      console email backend is used in development), and
    - POSTs the article to `/api/approved/`, where it is stored in
      `ApprovedArticleLog` (visible in `/admin/`).
-5. The article now appears on the home page for everyone.
+8. The article now appears on the home page for everyone.
 
-Publishers are created in the admin site (`/admin/`), where editors and
-journalists can be assigned to them.
+The admin site is only for maintenance; every feature is available in
+the front end.
 
-### 6.3 Pages
+### 6.4 Pages
 
 | URL | Who can use it |
 | --- | --- |
-| `/accounts/register/` | Anyone (choose Reader, Journalist, or Editor) |
+| `/accounts/register/` | Anyone (choose Reader, Journalist, Editor, or Publisher) |
+| `/publisher/manage/` | Publishers (add/remove editors and journalists) |
 | `/accounts/login/` | All users |
 | `/` | Approved articles (everyone) |
 | `/articles/<id>/` | Article detail |
 | `/articles/create/` | Journalists |
 | `/articles/mine/` | Journalists (their own articles) |
-| `/articles/pending/` | Editors (review and approve) |
+| `/articles/pending/` | Editors (their publishers' articles) and journalists (own independent drafts) |
 | `/newsletters/` | All logged-in users |
 | `/subscriptions/` | Readers |
 
@@ -287,7 +323,7 @@ Refresh an expired token with `POST /api/token/refresh/`, sending
 | GET | `/api/articles/subscribed/` | Readers: articles from their subscriptions |
 | GET | `/api/articles/<id>/` | Any logged-in user (readers: approved only) |
 | POST | `/api/articles/` | Journalists only |
-| PUT/PATCH | `/api/articles/<id>/` | Editors, or the journalist who wrote it (only editors may set `approved`) |
+| PUT/PATCH | `/api/articles/<id>/` | Editors, or the journalist who wrote it (`approved=true`: publisher's editors for publisher articles, the author for independent ones) |
 | DELETE | `/api/articles/<id>/` | Editors, or the journalist who wrote it |
 | GET/POST | `/api/newsletters/` | Read: everyone. Create: journalists and editors |
 | GET/PUT/DELETE | `/api/newsletters/<id>/` | Read: everyone. Change: editors or the owning journalist |
@@ -314,7 +350,10 @@ The tests cover:
 - authenticated access for each role, with successful and failed requests
 - readers only receiving content from their subscriptions
 - journalists creating articles, and non-journalists being refused
-- editors approving and deleting articles
+- editors approving only their publisher's articles, and deleting
+- independent journalists approving their own articles
+- unique email addresses on registration
+- publisher registration and adding/removing staff
 - newsletter permissions and ownership
 - the approval signal, with email and the `/api/approved/` POST mocked
 
@@ -323,7 +362,7 @@ The tests cover:
 ## 9. Project structure and design
 
 ```
-News_application/
+newsApllication/
 ├── manage.py
 ├── requirements.txt
 ├── .env.example            # template for your .env settings
@@ -351,13 +390,15 @@ the top-level `templates/` folder because they are not tied to one app.
 
 ### Data model (normalised)
 
-- **User** (custom): one `role` (`reader`, `journalist`, `editor`).
+- **User** (custom): unique `email`, one `role` (`reader`,
+  `journalist`, `editor`, `publisher`).
   - Reader fields: `subscribed_publishers` (M2M to Publisher) and
     `subscribed_journalists` (M2M to journalist users).
   - Journalist data: `articles` and `newsletters` (reverse relations).
   - Reader-only helpers return `None` for journalists, and vice versa.
     Subscription fields are cleared for non-readers.
-- **Publisher**: `name`, `description`, M2M `editors`, M2M `journalists`.
+- **Publisher**: `name`, `description`, `owner` (publisher user), M2M
+  `editors`, M2M `journalists`.
 - **Article**: `title`, `content`, `author` (journalist), `created_at`,
   `approved`, optional `publisher`. Independent articles have no
   publisher.
@@ -383,7 +424,7 @@ Failures in either step are caught so they never block the approval.
 | Problem | Fix |
 | --- | --- |
 | `No module named 'dotenv'` / `'rest_framework'` | Activate the virtual environment (step 2.4) and run `pip install -r requirements.txt`. |
-| `Could not open requirements file` | You are not in the project folder. Run `cd News_application`. |
+| `Could not open requirements file` | You are not in the project folder. Run `cd newsApllication`. |
 | `Access denied for user 'news_user'@'localhost'` | `DB_USER` or `DB_PASSWORD` in `.env` does not match step 3.2. |
 | `Unknown database 'news_db'` | Run the SQL in step 3.2. |
 | `Can't connect to MySQL server on '127.0.0.1'` | MariaDB is not running. Start the MariaDB service. |

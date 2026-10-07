@@ -20,16 +20,17 @@ from .api_views import (  # noqa: F401
 from .forms import (
     ArticleForm,
     NewsletterForm,
+    PublisherStaffForm,
     SubscriptionForm,
     UserRegistrationForm,
 )
 from .mixins import (
-    EditorRequiredMixin,
     JournalistOrEditorRequiredMixin,
     JournalistRequiredMixin,
+    PublisherRequiredMixin,
     ReaderRequiredMixin,
 )
-from .models import Article, Newsletter, RoleChoices
+from .models import Article, Newsletter, Publisher, RoleChoices
 
 
 class ApprovedArticleListView(LoginRequiredMixin, View):
@@ -79,29 +80,51 @@ class ArticleDetailView(LoginRequiredMixin, View):
 
 class PendingArticleListView(
     LoginRequiredMixin,
-    EditorRequiredMixin,
+    JournalistOrEditorRequiredMixin,
     View,
 ):
-    """Render the moderation queue for editor accounts."""
+    """Render the approval queue for the current user.
+
+    Editors see unapproved articles of publishers they edit for.
+    Journalists see their own unapproved *independent* articles, since
+    no editor oversees independent work.
+    """
 
     def get(self, request):
-        """List articles that still need editorial approval."""
-        pending_articles = Article.objects.filter(
-            approved=False,
-        ).select_related('author', 'publisher')
+        """List articles the current user is allowed to approve."""
+        user = request.user
+        pending = Article.objects.filter(approved=False)
+        if user.role == RoleChoices.EDITOR:
+            pending = pending.filter(
+                publisher__in=user.publisher_editor_for.all()
+            )
+        else:
+            pending = pending.filter(author=user, publisher__isnull=True)
         return render(
             request,
             'news/pending_articles.html',
-            {'articles': pending_articles},
+            {'articles': pending.select_related('author', 'publisher')},
         )
 
 
-class ApproveArticleView(LoginRequiredMixin, EditorRequiredMixin, View):
-    """Allow editors to approve an article from the HTML workflow."""
+class ApproveArticleView(
+    LoginRequiredMixin,
+    JournalistOrEditorRequiredMixin,
+    View,
+):
+    """Approve: editors for publisher articles, authors if independent."""
 
     def post(self, request, article_id):
         """Mark the article approved and let signals notify subscribers."""
         article = get_object_or_404(Article, pk=article_id)
+        if article.approved:
+            messages.info(request, 'Article is already approved.')
+            return redirect('pending-articles')
+        if not article.can_be_approved_by(request.user):
+            raise PermissionDenied(
+                "Publisher articles are approved by that publisher's "
+                'editors; independent articles by their author.'
+            )
         article.approved = True
         article.save(update_fields=['approved'])
         messages.success(
@@ -133,10 +156,14 @@ class ArticleCreateView(
         """Attach the author and keep the article unapproved."""
         form.instance.author = self.request.user
         form.instance.approved = False
-        messages.success(
-            self.request,
-            'Article submitted. An editor will review it shortly.',
-        )
+        if form.cleaned_data.get('publisher'):
+            note = 'Article submitted. A publisher editor will review it.'
+        else:
+            note = (
+                'Independent draft saved. Approve it from "Pending '
+                'review" when you are ready to publish.'
+            )
+        messages.success(self.request, note)
         return super().form_valid(form)
 
 
@@ -359,6 +386,42 @@ class SubscriptionView(LoginRequiredMixin, ReaderRequiredMixin, View):
             messages.success(request, 'Your subscriptions were updated.')
             return redirect('subscriptions')
         return render(request, 'news/subscriptions.html', {'form': form})
+
+
+class PublisherManageView(LoginRequiredMixin, PublisherRequiredMixin, View):
+    """Let a publisher add and remove its own editors and journalists."""
+
+    def _get_publisher(self, request):
+        """Return the publication owned by the current publisher user."""
+        publisher = Publisher.objects.filter(owner=request.user).first()
+        if publisher is None:
+            raise PermissionDenied('No publication is linked to you.')
+        return publisher
+
+    def _render(self, request, form, publisher):
+        """Render the staff management page."""
+        return render(
+            request,
+            'news/publisher_manage.html',
+            {'form': form, 'publisher': publisher},
+        )
+
+    def get(self, request):
+        """Show current staff with checkboxes for every candidate."""
+        publisher = self._get_publisher(request)
+        form = PublisherStaffForm(publisher=publisher)
+        return self._render(request, form, publisher)
+
+    def post(self, request):
+        """Replace the publication's editors and journalists."""
+        publisher = self._get_publisher(request)
+        form = PublisherStaffForm(request.POST, publisher=publisher)
+        if form.is_valid():
+            publisher.editors.set(form.cleaned_data['editors'])
+            publisher.journalists.set(form.cleaned_data['journalists'])
+            messages.success(request, 'Publication staff updated.')
+            return redirect('publisher-manage')
+        return self._render(request, form, publisher)
 
 
 class RegisterView(CreateView):

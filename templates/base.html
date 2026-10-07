@@ -117,8 +117,11 @@
         {% if user.is_authenticated and user.role == 'journalist' or user.is_authenticated and user.role == 'editor' %}
             <a href="{% url 'newsletter-create' %}">New newsletter</a>
         {% endif %}
-        {% if user.is_authenticated and user.role == 'editor' %}
+        {% if user.is_authenticated and user.role == 'editor' or user.is_authenticated and user.role == 'journalist' %}
             <a href="{% url 'pending-articles' %}">Pending review</a>
+        {% endif %}
+        {% if user.is_authenticated and user.role == 'publisher' %}
+            <a href="{% url 'publisher-manage' %}">Manage publication</a>
         {% endif %}
         <span class="spacer"></span>
         {% if user.is_authenticated %}

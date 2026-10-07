@@ -29,6 +29,7 @@ class PublisherSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "description",
+            "owner",
             "editors",
             "journalists",
         ]
@@ -52,14 +53,39 @@ class ArticleSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["created_at", "author"]
 
-    def validate_approved(self, value):
-        """Only editors may set the approved flag to True."""
+    def validate(self, attrs):
+        """Apply approval rules.
+
+        Publisher articles are approved by that publisher's editors;
+        independent articles are approved by their authoring journalist.
+        """
+        attrs = super().validate(attrs)
         request = self.context.get("request")
-        if request and value and request.user.role != RoleChoices.EDITOR:
-            raise serializers.ValidationError(
-                "Only editors can approve articles."
+        if not (request and attrs.get("approved", False)):
+            return attrs
+        if self.instance is None or self.instance.approved:
+            # New articles always start unapproved (enforced in the view).
+            return attrs
+        publisher = attrs.get("publisher", self.instance.publisher)
+        user = request.user
+        if publisher is None:
+            allowed = (
+                user.role == RoleChoices.JOURNALIST
+                and self.instance.author_id == user.id
             )
-        return value
+        else:
+            allowed = (
+                user.role == RoleChoices.EDITOR
+                and publisher.editors.filter(pk=user.pk).exists()
+            )
+        if not allowed:
+            raise serializers.ValidationError({
+                "approved": (
+                    "Publisher articles are approved by that publisher's "
+                    "editors; independent articles by their author."
+                )
+            })
+        return attrs
 
 
 class NewsletterSerializer(serializers.ModelSerializer):

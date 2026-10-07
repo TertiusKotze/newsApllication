@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Manage {{ publisher.name }}{% endblock %}
+
+{% block body %}
+<div class="card">
+    <h1>Manage {{ publisher.name }}</h1>
+    <p class="muted">Tick to add, untick to remove editors and journalists from your publication.</p>
+    <form method="post">
+        {% csrf_token %}
+        <h2>Editors</h2>
+        {{ form.editors }}
+        {% if not form.editors.field.queryset %}<p class="muted">No editor accounts exist yet.</p>{% endif %}
+        <h2>Journalists</h2>
+        {{ form.journalists }}
+        {% if not form.journalists.field.queryset %}<p class="muted">No journalist accounts exist yet.</p>{% endif %}
+        <div class="actions"><button type="submit">Save staff</button></div>
+    </form>
+</div>
+{% endblock %}
+

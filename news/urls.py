@@ -24,6 +24,7 @@ from .views import (
     NewsletterListView,
     NewsletterUpdateView,
     PendingArticleListView,
+    PublisherManageView,
     RegisterView,
     SubscriptionView,
 )
@@ -90,6 +91,11 @@ urlpatterns = [
         'newsletters/<int:pk>/delete/',
         NewsletterDeleteView.as_view(),
         name='newsletter-delete',
+    ),
+    path(
+        'publisher/manage/',
+        PublisherManageView.as_view(),
+        name='publisher-manage',
     ),
     path(
         'subscriptions/',

@@ -33,8 +33,20 @@ class UserRegistrationForm(StyledFormMixin, UserCreationForm):
         label='Account type',
         help_text=(
             'Readers follow and read content, journalists write articles '
-            'and newsletters, and editors review and approve articles.'
+            'and newsletters, editors review publisher articles, and '
+            'publishers manage their own editors and journalists.'
         ),
+    )
+    publisher_name = forms.CharField(
+        required=False,
+        max_length=200,
+        label='Publication name',
+        help_text='Required only for Publisher accounts.',
+    )
+    publisher_description = forms.CharField(
+        required=False,
+        label='Publication description',
+        widget=forms.Textarea(attrs={'rows': 3}),
     )
 
     class Meta(UserCreationForm.Meta):
@@ -45,6 +57,15 @@ class UserRegistrationForm(StyledFormMixin, UserCreationForm):
         super().__init__(*args, **kwargs)
         self._style_fields()
 
+    def clean_email(self):
+        """Reject email addresses already in use (case-insensitive)."""
+        email = (self.cleaned_data.get('email') or '').strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError(
+                'An account with this email address already exists.'
+            )
+        return email
+
     def clean_role(self):
         """Reject any role value outside the supported choices."""
         role = self.cleaned_data.get('role')
@@ -52,14 +73,65 @@ class UserRegistrationForm(StyledFormMixin, UserCreationForm):
             raise forms.ValidationError('Please choose a valid account type.')
         return role
 
+    def clean(self):
+        """Require a unique publication name for publisher accounts."""
+        cleaned = super().clean()
+        if cleaned.get('role') == RoleChoices.PUBLISHER:
+            name = (cleaned.get('publisher_name') or '').strip()
+            if not name:
+                self.add_error(
+                    'publisher_name',
+                    'Publisher accounts need a publication name.',
+                )
+            elif Publisher.objects.filter(name__iexact=name).exists():
+                self.add_error(
+                    'publisher_name',
+                    'A publication with this name already exists.',
+                )
+            cleaned['publisher_name'] = name
+        return cleaned
+
     def save(self, commit=True):
-        """Create the user with the selected role and email address."""
+        """Create the user (and their publication for publisher roles)."""
         user = super().save(commit=False)
         user.role = self.cleaned_data['role']
         user.email = self.cleaned_data['email']
         if commit:
             user.save()
+            if user.role == RoleChoices.PUBLISHER:
+                Publisher.objects.create(
+                    name=self.cleaned_data['publisher_name'],
+                    description=self.cleaned_data.get(
+                        'publisher_description', ''
+                    ),
+                    owner=user,
+                )
         return user
+
+
+class PublisherStaffForm(StyledFormMixin, forms.Form):
+    """Let a publisher choose (add/remove) its editors and journalists."""
+
+    editors = forms.ModelMultipleChoiceField(
+        queryset=User.objects.filter(role=RoleChoices.EDITOR),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+    )
+    journalists = forms.ModelMultipleChoiceField(
+        queryset=User.objects.filter(role=RoleChoices.JOURNALIST),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+    )
+
+    def __init__(self, *args, publisher=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if publisher is not None and not self.is_bound:
+            self.fields['editors'].initial = list(
+                publisher.editors.values_list('pk', flat=True)
+            )
+            self.fields['journalists'].initial = list(
+                publisher.journalists.values_list('pk', flat=True)
+            )
 
 
 class ArticleForm(StyledFormMixin, forms.ModelForm):
