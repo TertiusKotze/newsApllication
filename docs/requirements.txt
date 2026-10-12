@@ -1,0 +1,3 @@
+# Tools used to rebuild the Sphinx HTML in docs/_build/html.
+# The application itself does not need these packages at runtime.
+Sphinx>=7.4,<9.0
