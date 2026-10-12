@@ -562,7 +562,16 @@ The commits for those branches are in this repository:
 
 `docs` is the Sphinx commit. Each documented module was committed on its own before that, so a single script can be rolled back. `container` was branched from `main` at `d9e5c33` and only adds the Docker files. Both branches are merged into the project history (`Merge branch 'docs'` and `Merge branch 'container'`).
 
-To publish the branch names on the remote, if they are not already listed by `git branch -a`:
+Those names are published on GitHub by
+`.github/workflows/publish-assignment-branches.yml` when this repository
+is pushed to `main`. GitHub may ask you to approve that workflow the first
+time it runs. After it succeeds, the branches are:
+
+- https://github.com/TertiusKotze/newsApllication/tree/docs
+- https://github.com/TertiusKotze/newsApllication/tree/container
+
+If they are not listed by `git branch -a` after `git fetch origin`, create
+the same refs locally and push them:
 
 ```bash
 git fetch origin
