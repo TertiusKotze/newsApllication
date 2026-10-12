@@ -1,0 +1,17 @@
+.git
+.github
+.venv
+venv
+env
+.env
+__pycache__
+*.py[cod]
+*.sqlite3
+*.db
+docs/_build
+htmlcov
+.coverage
+.pytest_cache
+.idea
+.vscode
+docker-data

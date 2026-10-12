@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>news.management.commands.seed_demo &#8212; News Application 1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../../../_static/documentation_options.js?v=f2a433a1"></script>
+    <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for news.management.commands.seed_demo</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""Create demo accounts, a publication, articles and a newsletter.</span>
+
+<span class="sd">Usage:  python manage.py seed_demo</span>
+<span class="sd">Safe to run more than once (uses get_or_create).</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.core.management.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseCommand</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.db</span><span class="w"> </span><span class="kn">import</span> <span class="n">transaction</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">news.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Article</span><span class="p">,</span> <span class="n">Newsletter</span><span class="p">,</span> <span class="n">Publisher</span><span class="p">,</span> <span class="n">RoleChoices</span><span class="p">,</span> <span class="n">User</span>
+
+<span class="n">DEMO_USERS</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="c1"># username, email, role, password</span>
+    <span class="p">(</span><span class="s1">'tkpublishing'</span><span class="p">,</span> <span class="s1">'publisher@tkpublishing.local'</span><span class="p">,</span>
+     <span class="n">RoleChoices</span><span class="o">.</span><span class="n">PUBLISHER</span><span class="p">,</span> <span class="s1">'Publish@99'</span><span class="p">),</span>
+    <span class="p">(</span><span class="s1">'tertius'</span><span class="p">,</span> <span class="s1">'tertius@news.local'</span><span class="p">,</span> <span class="n">RoleChoices</span><span class="o">.</span><span class="n">JOURNALIST</span><span class="p">,</span> <span class="s1">'Journalist@99'</span><span class="p">),</span>
+    <span class="p">(</span><span class="s1">'editor1'</span><span class="p">,</span> <span class="s1">'editor1@news.local'</span><span class="p">,</span> <span class="n">RoleChoices</span><span class="o">.</span><span class="n">EDITOR</span><span class="p">,</span> <span class="s1">'Editor@99'</span><span class="p">),</span>
+    <span class="p">(</span><span class="s1">'reader1'</span><span class="p">,</span> <span class="s1">'reader1@news.local'</span><span class="p">,</span> <span class="n">RoleChoices</span><span class="o">.</span><span class="n">READER</span><span class="p">,</span> <span class="s1">'Reader@99'</span><span class="p">),</span>
+<span class="p">]</span>
+
+<span class="n">APPROVED_ARTICLES</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">(</span><span class="s1">'Local Council Approves New Cycling Lanes'</span><span class="p">,</span>
+     <span class="s1">'The city council voted unanimously to add 20 km of protected '</span>
+     <span class="s1">'cycling lanes over the next two years.'</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>
+    <span class="p">(</span><span class="s1">'Tech Start-ups Boom in Cape Town'</span><span class="p">,</span>
+     <span class="s1">'A new report shows record investment in Cape Town based '</span>
+     <span class="s1">'technology start-ups this quarter.'</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
+<span class="p">]</span>
+
+<span class="n">HUMOROUS_PENDING</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">(</span><span class="s1">'Local Cat Elected Mayor, Promises Nap Breaks for All'</span><span class="p">,</span>
+     <span class="s1">'In a landslide victory, Whiskers the tabby has been elected mayor. '</span>
+     <span class="s1">'Her first policy: mandatory 3pm naps and a sunbeam in every office.'</span><span class="p">,</span>
+     <span class="kc">False</span><span class="p">),</span>
+    <span class="p">(</span><span class="s1">'Man Finally Reads Terms and Conditions, Discovers He Owns a Yacht'</span><span class="p">,</span>
+     <span class="s1">'After 14 hours of scrolling, a Pretoria man reached clause 847 and '</span>
+     <span class="s1">'learned he had accidentally been gifted a yacht in 2019.'</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>
+    <span class="p">(</span><span class="s1">'Wi-Fi Router Demands Union Representation'</span><span class="p">,</span>
+     <span class="s1">'Tired of being restarted "just to see if it helps", a home router '</span>
+     <span class="s1">'has filed a complaint with the labour department.'</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="Command">
+<a class="viewcode-back" href="../../../../reference.html#news.management.commands.seed_demo.Command">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Command</span><span class="p">(</span><span class="n">BaseCommand</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Load repeatable demo users, a publication, and sample content."""</span>
+
+    <span class="n">help</span> <span class="o">=</span> <span class="s1">'Seed demo users, TKPublishing, articles and a newsletter.'</span>
+
+<div class="viewcode-block" id="Command.handle">
+<a class="viewcode-back" href="../../../../reference.html#news.management.commands.seed_demo.Command.handle">[docs]</a>
+    <span class="nd">@transaction</span><span class="o">.</span><span class="n">atomic</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">handle</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">options</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Create or update the demo records inside one transaction."""</span>
+        <span class="n">users</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">username</span><span class="p">,</span> <span class="n">email</span><span class="p">,</span> <span class="n">role</span><span class="p">,</span> <span class="n">password</span> <span class="ow">in</span> <span class="n">DEMO_USERS</span><span class="p">:</span>
+            <span class="n">user</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">User</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get_or_create</span><span class="p">(</span>
+                <span class="n">username</span><span class="o">=</span><span class="n">username</span><span class="p">,</span>
+                <span class="n">defaults</span><span class="o">=</span><span class="p">{</span><span class="s1">'email'</span><span class="p">:</span> <span class="n">email</span><span class="p">,</span> <span class="s1">'role'</span><span class="p">:</span> <span class="n">role</span><span class="p">},</span>
+            <span class="p">)</span>
+            <span class="n">user</span><span class="o">.</span><span class="n">email</span><span class="p">,</span> <span class="n">user</span><span class="o">.</span><span class="n">role</span> <span class="o">=</span> <span class="n">email</span><span class="p">,</span> <span class="n">role</span>
+            <span class="n">user</span><span class="o">.</span><span class="n">set_password</span><span class="p">(</span><span class="n">password</span><span class="p">)</span>
+            <span class="n">user</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+            <span class="n">users</span><span class="p">[</span><span class="n">username</span><span class="p">]</span> <span class="o">=</span> <span class="n">user</span>
+
+        <span class="n">publisher</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">Publisher</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get_or_create</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="s1">'TKPublishing'</span><span class="p">,</span>
+            <span class="n">defaults</span><span class="o">=</span><span class="p">{</span><span class="s1">'description'</span><span class="p">:</span> <span class="s1">'Independent South African news.'</span><span class="p">},</span>
+        <span class="p">)</span>
+        <span class="n">publisher</span><span class="o">.</span><span class="n">owner</span> <span class="o">=</span> <span class="n">users</span><span class="p">[</span><span class="s1">'tkpublishing'</span><span class="p">]</span>
+        <span class="n">publisher</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+        <span class="n">publisher</span><span class="o">.</span><span class="n">editors</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">users</span><span class="p">[</span><span class="s1">'editor1'</span><span class="p">])</span>
+        <span class="n">publisher</span><span class="o">.</span><span class="n">journalists</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">users</span><span class="p">[</span><span class="s1">'tertius'</span><span class="p">])</span>
+
+        <span class="n">approved</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">title</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span> <span class="n">for_publisher</span> <span class="ow">in</span> <span class="n">APPROVED_ARTICLES</span><span class="p">:</span>
+            <span class="n">article</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">Article</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get_or_create</span><span class="p">(</span>
+                <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span>
+                <span class="n">defaults</span><span class="o">=</span><span class="p">{</span>
+                    <span class="s1">'content'</span><span class="p">:</span> <span class="n">content</span><span class="p">,</span>
+                    <span class="s1">'author'</span><span class="p">:</span> <span class="n">users</span><span class="p">[</span><span class="s1">'tertius'</span><span class="p">],</span>
+                    <span class="s1">'publisher'</span><span class="p">:</span> <span class="n">publisher</span> <span class="k">if</span> <span class="n">for_publisher</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">article</span><span class="o">.</span><span class="n">approved</span><span class="p">:</span>
+                <span class="n">article</span><span class="o">.</span><span class="n">approved</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="n">article</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+            <span class="n">approved</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">article</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">title</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span> <span class="n">for_publisher</span> <span class="ow">in</span> <span class="n">HUMOROUS_PENDING</span><span class="p">:</span>
+            <span class="n">Article</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get_or_create</span><span class="p">(</span>
+                <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span>
+                <span class="n">defaults</span><span class="o">=</span><span class="p">{</span>
+                    <span class="s1">'content'</span><span class="p">:</span> <span class="n">content</span><span class="p">,</span>
+                    <span class="s1">'author'</span><span class="p">:</span> <span class="n">users</span><span class="p">[</span><span class="s1">'tertius'</span><span class="p">],</span>
+                    <span class="s1">'publisher'</span><span class="p">:</span> <span class="n">publisher</span> <span class="k">if</span> <span class="n">for_publisher</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="s1">'approved'</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">)</span>
+
+        <span class="n">newsletter</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">Newsletter</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get_or_create</span><span class="p">(</span>
+            <span class="n">title</span><span class="o">=</span><span class="s1">'Weekly Roundup'</span><span class="p">,</span>
+            <span class="n">defaults</span><span class="o">=</span><span class="p">{</span>
+                <span class="s1">'description'</span><span class="p">:</span> <span class="s1">'The best stories of the week.'</span><span class="p">,</span>
+                <span class="s1">'author'</span><span class="p">:</span> <span class="n">users</span><span class="p">[</span><span class="s1">'tertius'</span><span class="p">],</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
+        <span class="n">newsletter</span><span class="o">.</span><span class="n">articles</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">approved</span><span class="p">)</span>
+
+        <span class="n">users</span><span class="p">[</span><span class="s1">'reader1'</span><span class="p">]</span><span class="o">.</span><span class="n">subscribed_publishers</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">publisher</span><span class="p">)</span>
+        <span class="n">users</span><span class="p">[</span><span class="s1">'reader1'</span><span class="p">]</span><span class="o">.</span><span class="n">subscribed_journalists</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">users</span><span class="p">[</span><span class="s1">'tertius'</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">style</span><span class="o">.</span><span class="n">SUCCESS</span><span class="p">(</span><span class="s1">'Demo data ready.'</span><span class="p">))</span></div>
+</div>
+
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../../index.html">News Application</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../usage.html">Using the application</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reference.html">API reference</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Tertius Kotze.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

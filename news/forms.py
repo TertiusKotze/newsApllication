@@ -54,6 +54,7 @@ class UserRegistrationForm(StyledFormMixin, UserCreationForm):
         fields = ['username', 'email', 'role', 'password1', 'password2']
 
     def __init__(self, *args, **kwargs):
+        """Apply the shared field styling used by the registration page."""
         super().__init__(*args, **kwargs)
         self._style_fields()
 
@@ -124,6 +125,7 @@ class PublisherStaffForm(StyledFormMixin, forms.Form):
     )
 
     def __init__(self, *args, publisher=None, **kwargs):
+        """Pre-select the publisher's current editors and journalists."""
         super().__init__(*args, **kwargs)
         if publisher is not None and not self.is_bound:
             self.fields['editors'].initial = list(
@@ -145,6 +147,7 @@ class ArticleForm(StyledFormMixin, forms.ModelForm):
         }
 
     def __init__(self, *args, user=None, **kwargs):
+        """Limit publisher choices to publications the journalist joins."""
         super().__init__(*args, **kwargs)
         self.user = user
         self.fields['publisher'].required = False
@@ -191,6 +194,7 @@ class NewsletterForm(StyledFormMixin, forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        """Offer only approved articles and apply shared field styling."""
         super().__init__(*args, **kwargs)
         self.fields['articles'].queryset = Article.objects.filter(
             approved=True
@@ -219,6 +223,7 @@ class SubscriptionForm(StyledFormMixin, forms.Form):
     )
 
     def __init__(self, *args, user=None, **kwargs):
+        """Pre-select the reader's current publisher and journalist follows."""
         super().__init__(*args, **kwargs)
         self.user = user
         if user:

@@ -26,6 +26,8 @@ The project uses **MariaDB** as its database.
 8. [Running the tests](#8-running-the-tests)
 9. [Project structure and design](#9-project-structure-and-design)
 10. [Troubleshooting](#10-troubleshooting)
+11. [Run with Docker](#11-run-with-docker)
+12. [Sphinx documentation](#12-sphinx-documentation)
 
 ---
 
@@ -365,7 +367,11 @@ The tests cover:
 newsApllication/
 ├── manage.py
 ├── requirements.txt
+├── Dockerfile              # app image used by Docker Compose
+├── docker-compose.yml      # Django app plus MariaDB
+├── entrypoint.sh           # waits for MariaDB, migrates, starts the server
 ├── .env.example            # template for your .env settings
+├── docs/                   # Sphinx source and generated HTML
 ├── news_project/           # project settings and root URLs
 ├── news/                   # the news application
 │   ├── models.py           # User, Publisher, Article, Newsletter, ApprovedArticleLog
@@ -430,4 +436,108 @@ Failures in either step are caught so they never block the approval.
 | `Can't connect to MySQL server on '127.0.0.1'` | MariaDB is not running. Start the MariaDB service. |
 | Tests fail with `Got an error creating the test database` | Run the `GRANT ... ON test_news_db.*` line from step 3.2. |
 | `mysqlclient` fails to install on macOS/Linux | Install the client headers listed in step 2.5. |
+| Docker web container exits waiting for the database | Check that `DB_PASSWORD` in `.env` matches the password MariaDB was first created with. If you changed it, run `docker compose down -v` and start again. |
+
+---
+
+## 11. Run with Docker
+
+Docker is an alternative to the virtualenv steps in sections 2 to 5. You
+need [Docker Desktop](https://www.docker.com/products/docker-desktop/) or
+Docker Engine with the Compose plugin. You do **not** need a local Python
+or MariaDB install for this path.
+
+### 11.1 Choose your own secrets
+
+Copy the template if you want your own passwords (recommended):
+
+| System | Command |
+| --- | --- |
+| Windows | `copy .env.example .env` |
+| macOS / Linux | `cp .env.example .env` |
+
+Edit `.env` and set `DJANGO_SECRET_KEY`, `DB_PASSWORD`, and
+`INTERNAL_API_KEY` yourself. Do not commit `.env`. Docker Compose reads
+those names from `.env` when the file exists.
+
+If you skip this step, Compose uses the local placeholders in
+`docker-compose.yml` (`change-me` and similar). Those placeholders are
+only for a private machine. Replace them before sharing the computer or
+deploying the stack.
+
+`DB_HOST` inside the web container is always the Compose service name
+`db`, even if your `.env` file says `127.0.0.1` for the virtualenv
+workflow.
+
+### 11.2 Build and run
+
+From the project folder:
+
+```bash
+docker compose up --build
+```
+
+The first run builds the image, starts MariaDB, waits until it accepts
+connections, applies migrations, and serves the site on
+**http://127.0.0.1:8000/**.
+
+In another terminal, optional demo data:
+
+```bash
+docker compose exec web python manage.py seed_demo
+```
+
+Demo usernames and passwords are listed in section 6.2. Stop the stack
+with `Ctrl+C`, then:
+
+```bash
+docker compose down
+```
+
+Add `-v` only when you want to delete the database volume as well.
+
+### 11.3 Run the image without Compose
+
+If you already have MariaDB on another host, build and run the app image
+yourself. Replace the password and secret with values you choose:
+
+```bash
+docker build -t news-app .
+docker run --rm -p 8000:8000 \
+  -e DJANGO_SECRET_KEY=your-own-long-random-string \
+  -e DJANGO_DEBUG=1 \
+  -e DJANGO_ALLOWED_HOSTS=* \
+  -e DB_NAME=news_db \
+  -e DB_USER=news_user \
+  -e DB_PASSWORD=your-own-database-password \
+  -e DB_HOST=host.docker.internal \
+  -e DB_PORT=3306 \
+  -e INTERNAL_API_KEY=your-own-internal-key \
+  news-app
+```
+
+The database and user must already exist and must be reachable from the
+container.
+
+---
+
+## 12. Sphinx documentation
+
+User-facing HTML documentation is generated with Sphinx and stored in
+`docs/_build/html`. Open `docs/_build/html/index.html` in a browser. It
+is committed so you can read it without installing Sphinx.
+
+To rebuild it after docstring changes, with the virtual environment
+active and the project dependencies installed:
+
+```bash
+pip install -r docs/requirements.txt
+sphinx-build -b html docs docs/_build/html
+```
+
+`docs/conf.py` adds the project root to `sys.path`, sets
+`DJANGO_SETTINGS_MODULE` to `news_project.settings`, and calls
+`django.setup()` so autodoc can import the Django apps. Rebuilding the
+docs needs the same packages as the app, including `mysqlclient`, because
+Django loads the MariaDB backend while it sets up.
 

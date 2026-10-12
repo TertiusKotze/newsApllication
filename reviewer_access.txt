@@ -1,0 +1,20 @@
+Reviewer notes for Practical Task 1
+===================================
+
+Public repository:
+https://github.com/TertiusKotze/newsApllication
+
+Secrets are not stored in Git. Copy .env.example to .env and set your own
+DJANGO_SECRET_KEY, DB_PASSWORD, and INTERNAL_API_KEY before running the
+app with a virtual environment. Docker Compose uses the same .env values
+when that file exists. If it does not, the placeholders in
+docker-compose.yml are local development defaults only. Replace them
+before using the stack on a shared machine.
+
+Demo accounts are created by:
+
+    python manage.py seed_demo
+
+Usernames, roles, and the demo passwords are listed in README.md section
+6.2 and in news/management/commands/seed_demo.py. Those are sample
+accounts for local review, not production credentials.

@@ -9,6 +9,7 @@ class IsReader(BasePermission):
     """Allow access only to authenticated reader accounts."""
 
     def has_permission(self, request, view):
+        """Return True only for an authenticated reader."""
         user = request.user
         return bool(
             user
@@ -21,6 +22,7 @@ class IsJournalist(BasePermission):
     """Allow access only to authenticated journalist accounts."""
 
     def has_permission(self, request, view):
+        """Return True only for an authenticated journalist."""
         user = request.user
         return bool(
             user
@@ -33,6 +35,7 @@ class IsEditor(BasePermission):
     """Allow access only to authenticated editor accounts."""
 
     def has_permission(self, request, view):
+        """Return True only for an authenticated editor."""
         user = request.user
         return bool(
             user
@@ -45,6 +48,7 @@ class IsEditorOrJournalist(BasePermission):
     """Allow editors and journalists to access a write endpoint."""
 
     def has_permission(self, request, view):
+        """Return True for an authenticated editor or journalist."""
         user = request.user
         return bool(
             user
@@ -60,6 +64,7 @@ class ReadOnlyOrEditorJournalist(BasePermission):
     """Allow any authenticated user to read; staff roles to write."""
 
     def has_permission(self, request, view):
+        """Allow reads for any logged-in user and writes for staff roles."""
         user = request.user
         if not (user and user.is_authenticated):
             return False

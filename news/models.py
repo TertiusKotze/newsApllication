@@ -116,6 +116,7 @@ class User(AbstractUser):
         return self.newsletters.all()
 
     def __str__(self):
+        """Return the username shown in admin and forms."""
         return self.username
 
 
@@ -147,6 +148,7 @@ class Publisher(models.Model):
     )
 
     def __str__(self):
+        """Return the publication name."""
         return self.name
 
 
@@ -213,6 +215,7 @@ class Article(models.Model):
         )
 
     def __str__(self):
+        """Return the article title."""
         return self.title
 
 
@@ -248,6 +251,7 @@ class Newsletter(models.Model):
             )
 
     def __str__(self):
+        """Return the newsletter title."""
         return self.title
 
 
@@ -266,5 +270,6 @@ class ApprovedArticleLog(models.Model):
         ordering = ['-received_at']
 
     def __str__(self):
+        """Return a short label for this approval-log row."""
         return f'Approved log #{self.pk} for article {self.article_id}'
 
