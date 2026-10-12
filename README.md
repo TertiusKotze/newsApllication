@@ -28,6 +28,7 @@ The project uses **MariaDB** as its database.
 10. [Troubleshooting](#10-troubleshooting)
 11. [Run with Docker](#11-run-with-docker)
 12. [Sphinx documentation](#12-sphinx-documentation)
+13. [Git branches](#13-git-branches)
 
 ---
 
@@ -540,4 +541,38 @@ sphinx-build -b html docs docs/_build/html
 `django.setup()` so autodoc can import the Django apps. Rebuilding the
 docs needs the same packages as the app, including `mysqlclient`, because
 Django loads the MariaDB backend while it sets up.
+
+---
+
+## 13. Git branches
+
+The practical task is recorded on two branches, both merged into `main`:
+
+| Branch | What it contains |
+| --- | --- |
+| `docs` | Docstrings committed one module at a time, then the Sphinx project and generated HTML in `docs/`. |
+| `container` | A working `Dockerfile`, `entrypoint.sh`, and `docker-compose.yml`, branched from `main` before those files were added. |
+
+The commits for those branches are in this repository:
+
+| Branch | Commit |
+| --- | --- |
+| `docs` | `f4ab8b5f2d0c1b3f21c01bc244065fb0703ba6a3` |
+| `container` | `a0528146cef46ce671331a67e9f6fff7cdfa5155` |
+
+`docs` is the Sphinx commit. Each documented module was committed on its own before that, so a single script can be rolled back. `container` was branched from `main` at `d9e5c33` and only adds the Docker files. Both branches are merged into the project history (`Merge branch 'docs'` and `Merge branch 'container'`).
+
+To publish the branch names on the remote, if they are not already listed by `git branch -a`:
+
+```bash
+git fetch origin
+git push origin f4ab8b5f2d0c1b3f21c01bc244065fb0703ba6a3:refs/heads/docs
+git push origin a0528146cef46ce671331a67e9f6fff7cdfa5155:refs/heads/container
+```
+
+`requirements.txt` is in the repository root. Another developer can install
+the project packages with `pip install -r requirements.txt` (use `pip3` if
+that is the command on their system). Copy `.env.example` to `.env` and
+set `DJANGO_SECRET_KEY`, `DB_PASSWORD`, and `INTERNAL_API_KEY` yourself.
+Do not commit that file.
 
