@@ -1,18 +1,86 @@
-# Python
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
+*$py.class
 
-# Virtual environments
-venv/
-.venv/
+# C extensions
+*.so
 
-# Secrets (use .env.example as the template)
-.env
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Local database files (the project uses MariaDB)
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
 *.sqlite3
 *.db
+media/
+staticfiles/
 
-# IDE
+# Sphinx build cache only. The generated HTML in docs/_build/html is
+# tracked on purpose so readers can open the documentation without
+# rebuilding it.
+docs/_build/doctrees/
+docs/_build/html/.doctrees/
+
+# Virtual environments and secrets
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+virtualenv/
+
+# IDE / OS
 .idea/
 .vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Docker local data
+docker-data/
