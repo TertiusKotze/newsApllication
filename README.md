@@ -564,7 +564,8 @@ The commits for those branches are in this repository:
 
 Those names are published on GitHub by
 `.github/workflows/publish-assignment-branches.yml` when this repository
-is pushed to `main`. After that workflow succeeds, the branches are:
+is pushed to `main`. GitHub may ask you to approve that workflow the first
+time it runs. After it succeeds, the branches are:
 
 - https://github.com/TertiusKotze/newsApllication/tree/docs
 - https://github.com/TertiusKotze/newsApllication/tree/container
