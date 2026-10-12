@@ -42,10 +42,13 @@ HUMOROUS_PENDING = [
 
 
 class Command(BaseCommand):
+    """Load repeatable demo users, a publication, and sample content."""
+
     help = 'Seed demo users, TKPublishing, articles and a newsletter.'
 
     @transaction.atomic
     def handle(self, *args, **options):
+        """Create or update the demo records inside one transaction."""
         users = {}
         for username, email, role, password in DEMO_USERS:
             user, _ = User.objects.get_or_create(
