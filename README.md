@@ -553,20 +553,22 @@ The practical task is recorded on two branches, both merged into `main`:
 | `docs` | Docstrings committed one module at a time, then the Sphinx project and generated HTML in `docs/`. |
 | `container` | A working `Dockerfile`, `entrypoint.sh`, and `docker-compose.yml`, branched from `main` before those files were added. |
 
-After cloning, list them with:
-
-```bash
-git branch -a
-```
-
-The branch tips are:
+The commits for those branches are in this repository:
 
 | Branch | Commit |
 | --- | --- |
 | `docs` | `f4ab8b5f2d0c1b3f21c01bc244065fb0703ba6a3` |
 | `container` | `a0528146cef46ce671331a67e9f6fff7cdfa5155` |
 
-`docs` is the Sphinx commit. Each documented module was committed on its own before that, so a single script can be rolled back. `container` was branched from `main` at `d9e5c33` and only adds the Docker files. That branch is merged into this project with a merge commit.
+`docs` is the Sphinx commit. Each documented module was committed on its own before that, so a single script can be rolled back. `container` was branched from `main` at `d9e5c33` and only adds the Docker files. Both branches are merged into the project history (`Merge branch 'docs'` and `Merge branch 'container'`).
+
+To publish the branch names on the remote, if they are not already listed by `git branch -a`:
+
+```bash
+git fetch origin
+git push origin f4ab8b5f2d0c1b3f21c01bc244065fb0703ba6a3:refs/heads/docs
+git push origin a0528146cef46ce671331a67e9f6fff7cdfa5155:refs/heads/container
+```
 
 `requirements.txt` is in the repository root. Another developer can install
 the project packages with `pip install -r requirements.txt` (use `pip3` if
